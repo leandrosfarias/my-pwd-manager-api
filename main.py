@@ -1,12 +1,11 @@
 import os
-from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from auth import create_access_token, get_password_hash, verify_password
-from sqlmodel import Field, SQLModel, create_engine, Session, select
-from models.User import User
+from sqlmodel import SQLModel, create_engine, Session, select
+from models import User, PasswordEntry, Category
 from dtos.UserCreate import UserCreate
 from passlib.context import CryptContext
 import secrets
@@ -14,14 +13,6 @@ from contextlib import asynccontextmanager
 
 
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
-
-
-class Hero(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    name: str
-    secret_name: str
-    age: Optional[int] = None
-
 
 database_url = os.getenv("DATABASE_URL")
 if not database_url:
@@ -40,14 +31,6 @@ def drop_db_and_tables():
     print("Droppando tabelas...")
     SQLModel.metadata.drop_all(engine)
     print("Tabelas droppadas com sucesso!")
-
-
-def get_all_users():
-    with Session(engine) as session:
-        statement = select(User)
-        results = session.exec(statement)
-        users = results.all()
-        return users
 
 
 @asynccontextmanager
