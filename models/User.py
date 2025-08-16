@@ -7,5 +7,4 @@ class User(SQLModel, table=True):
 
     username: str = Field(max_length=255, unique=True, index=True)
     master_key_hash: str
-    master_key_salt: str
     encryption_salt: str

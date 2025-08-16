@@ -8,6 +8,7 @@ services:
     restart: always
     environment:
       DATABASE_URL: postgresql://user:password@db:5432/mydatabase
+      SECRET_KEY: "uma-string-secreta-forte-e-aleatoria"
     depends_on:
       - db
   db:
