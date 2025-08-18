@@ -117,3 +117,16 @@ def create_password_entry(password_entry: PasswordEntryCreate):
         session.commit()
         session.refresh(db_password_entry)
         return db_password_entry
+
+
+@app.get("/password-entries/")
+def get_password_entries(user_id: UUID):
+    with Session(engine) as session:
+        user = get_user_by_id(user_id)
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail="User not found")
+
+        password_entries = session.exec(select(PasswordEntry).where(
+            PasswordEntry.user_id == user.id)).all()
+        return password_entries
