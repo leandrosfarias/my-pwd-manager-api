@@ -1,24 +1,22 @@
 import os
+from typing import Optional
+from uuid import UUID
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from auth import create_access_token, get_password_hash, verify_password
-from sqlmodel import SQLModel, create_engine, Session, select
+from sqlmodel import SQLModel, Session, select
+from DbManager import engine, get_user_by_id
 from models import User, PasswordEntry, Category
 from dtos.UserCreate import UserCreate
 from passlib.context import CryptContext
 import secrets
 from contextlib import asynccontextmanager
+from encryption import derive_key, encrypt_data, decrypt_data
 
 
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
-
-database_url = os.getenv("DATABASE_URL")
-if not database_url:
-    raise ValueError("DATABASE_URL environment variable is not set")
-
-engine = create_engine(database_url)
 
 
 def create_db_and_tables():
@@ -87,3 +85,35 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
 
         access_token = create_access_token(data={"sub": str(user.id)})
         return {"access_token": access_token, "token_type": "bearer"}
+
+
+class PasswordEntryCreate(BaseModel):
+    service_name: str
+    username: str
+    encrypted_password: str
+    notes: Optional[str] = None
+    user_id: UUID
+    category_id: Optional[UUID] = None
+
+
+@app.post("/password-entries/")
+def create_password_entry(password_entry: PasswordEntryCreate):
+    with Session(engine) as session:
+
+        user = get_user_by_id(password_entry.user_id)
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+        key = derive_key(user.master_key_hash, user.encryption_salt)
+
+        password_entry.encrypted_password = encrypt_data(password_entry.encrypted_password,
+                                                         key)
+
+        print("Senha criptografada: ", password_entry.encrypted_password)
+
+        db_password_entry = PasswordEntry(**password_entry.model_dump())
+
+        session.add(db_password_entry)
+        session.commit()
+        session.refresh(db_password_entry)
+        return db_password_entry
